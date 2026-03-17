@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>本格マッチ3</title>
+<title>完成版マッチ3</title>
 <style>
 body {
     font-family: Arial;
@@ -35,19 +35,47 @@ body {
     transform: scale(0.5);
     opacity: 0;
 }
+
+/* コンボ演出 */
+#comboText {
+    position: fixed;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.5);
+    font-size: 50px;
+    color: #ff3399;
+    opacity: 0;
+    pointer-events: none;
+    transition: 0.5s;
+}
+
+.showCombo {
+    opacity: 1 !important;
+    transform: translate(-50%, -50%) scale(1.2) !important;
+}
+
+/* リスタート */
+#restart {
+    margin-top: 15px;
+    padding: 10px 20px;
+    font-size: 16px;
+    display: none;
+}
 </style>
 </head>
 <body>
 
-<h1>🍭 本格マッチ3 🍬</h1>
+<h1>🍭 完成版マッチ3 🍬</h1>
 
 <div>
 スコア: <span id="score">0</span> |
-⏱ <span id="time">300</span> |
+🎯 手数: <span id="moves">30</span> |
 🔥 <span id="combo">0</span>
 </div>
 
 <div id="board"></div>
+<div id="comboText"></div>
+<button id="restart">もう一回</button>
 
 <script>
 const size = 6;
@@ -58,27 +86,28 @@ let selected = null;
 
 let score = 0;
 let combo = 0;
-let time = 300;
+let moves = 30;
 let gameActive = true;
 
 const board = document.getElementById("board");
+const comboText = document.getElementById("comboText");
 
-function randomItem() {
+function randomItem(){
     return items[Math.floor(Math.random()*items.length)];
 }
 
-function createBoard() {
-    board.innerHTML = "";
-    grid = [];
+function createBoard(){
+    board.innerHTML="";
+    grid=[];
 
-    for (let i=0;i<size*size;i++) {
-        const tile = document.createElement("div");
-        tile.className = "tile";
-        tile.textContent = randomItem();
-        tile.dataset.index = i;
-        tile.dataset.special = "";
+    for(let i=0;i<size*size;i++){
+        const tile=document.createElement("div");
+        tile.className="tile";
+        tile.textContent=randomItem();
+        tile.dataset.index=i;
+        tile.dataset.special="";
 
-        tile.onclick = ()=>clickTile(tile);
+        tile.onclick=()=>clickTile(tile);
 
         board.appendChild(tile);
         grid.push(tile);
@@ -91,8 +120,8 @@ function isAdjacent(a,b){
 }
 
 function swap(a,b){
-    [a.textContent,b.textContent] = [b.textContent,a.textContent];
-    [a.dataset.special,b.dataset.special] = [b.dataset.special,a.dataset.special];
+    [a.textContent,b.textContent]=[b.textContent,a.textContent];
+    [a.dataset.special,b.dataset.special]=[b.dataset.special,a.dataset.special];
 }
 
 function clickTile(tile){
@@ -105,10 +134,14 @@ function clickTile(tile){
         if(isAdjacent(selected,tile)){
             swap(selected,tile);
 
-            if(!process()){
+            if(process()){
+                moves--;
+            }else{
                 setTimeout(()=>swap(selected,tile),200);
                 combo=0;
             }
+
+            checkEnd();
         }
 
         selected.classList.remove("selected");
@@ -116,12 +149,22 @@ function clickTile(tile){
     }
 }
 
-// マッチ検出＋特殊生成
-function findMatches(){
-    let matches = [];
-    let specials = [];
+function showComboEffect(){
+    if(combo <= 1) return;
 
-    // 横
+    comboText.textContent = combo + " COMBO!";
+    comboText.classList.add("showCombo");
+
+    setTimeout(()=>{
+        comboText.classList.remove("showCombo");
+    },600);
+}
+
+// マッチ処理
+function findMatches(){
+    let matches=[];
+    let specials=[];
+
     for(let r=0;r<size;r++){
         let streak=[r*size];
         for(let c=1;c<size;c++){
@@ -131,23 +174,15 @@ function findMatches(){
             }else{
                 if(streak.length>=3){
                     matches.push(...streak);
-
-                    if(streak.length===4){
-                        specials.push({i:streak[0],type:"line"});
-                    }
-                    if(streak.length>=5){
-                        specials.push({i:streak[0],type:"bomb"});
-                    }
+                    if(streak.length===4) specials.push({i:streak[0],type:"line"});
+                    if(streak.length>=5) specials.push({i:streak[0],type:"bomb"});
                 }
                 streak=[i];
             }
         }
-        if(streak.length>=3){
-            matches.push(...streak);
-        }
+        if(streak.length>=3) matches.push(...streak);
     }
 
-    // 縦
     for(let c=0;c<size;c++){
         let streak=[c];
         for(let r=1;r<size;r++){
@@ -155,32 +190,28 @@ function findMatches(){
             if(grid[i].textContent===grid[i-size].textContent){
                 streak.push(i);
             }else{
-                if(streak.length>=3){
-                    matches.push(...streak);
-                }
+                if(streak.length>=3) matches.push(...streak);
                 streak=[i];
             }
         }
-        if(streak.length>=3){
-            matches.push(...streak);
-        }
+        if(streak.length>=3) matches.push(...streak);
     }
 
     return {matches:[...new Set(matches)], specials};
 }
 
-function activateSpecial(index){
-    let type = grid[index].dataset.special;
+function activateSpecial(i){
+    let type=grid[i].dataset.special;
 
     if(type==="line"){
-        let row = Math.floor(index/size);
+        let row=Math.floor(i/size);
         for(let c=0;c<size;c++){
             grid[row*size+c].textContent="";
         }
     }
 
     if(type==="bomb"){
-        let color = grid[index].textContent;
+        let color=grid[i].textContent;
         grid.forEach(t=>{
             if(t.textContent===color) t.textContent="";
         });
@@ -188,7 +219,7 @@ function activateSpecial(index){
 }
 
 function process(){
-    let {matches, specials} = findMatches();
+    let {matches,specials}=findMatches();
 
     if(matches.length===0){
         combo=0;
@@ -197,18 +228,18 @@ function process(){
     }
 
     combo++;
+    showComboEffect();
+
     score += matches.length * 10 * combo;
 
-    // 特殊ピース生成
     specials.forEach(s=>{
-        grid[s.i].dataset.special = s.type;
-        grid[s.i].textContent = s.type==="bomb" ? "🌈" : "⭐";
+        grid[s.i].dataset.special=s.type;
+        grid[s.i].textContent=s.type==="bomb"?"🌈":"⭐";
     });
 
     matches.forEach(i=>{
-        if(grid[i].dataset.special){
-            activateSpecial(i);
-        }
+        if(grid[i].dataset.special) activateSpecial(i);
+
         grid[i].classList.add("clear");
         setTimeout(()=>{
             grid[i].textContent="";
@@ -254,25 +285,31 @@ function drop(){
 function updateUI(){
     document.getElementById("score").textContent=score;
     document.getElementById("combo").textContent=combo;
+    document.getElementById("moves").textContent=moves;
 }
 
-function timer(){
-    let t=setInterval(()=>{
-        if(!gameActive)return;
-
-        time--;
-        document.getElementById("time").textContent=time;
-
-        if(time<=0){
-            gameActive=false;
-            clearInterval(t);
-            alert("終了！スコア:"+score);
-        }
-    },1000);
+function checkEnd(){
+    if(moves<=0){
+        gameActive=false;
+        document.getElementById("restart").style.display="inline-block";
+    }
 }
+
+// リスタート
+document.getElementById("restart").onclick=()=>{
+    score=0;
+    combo=0;
+    moves=30;
+    gameActive=true;
+
+    document.getElementById("restart").style.display="none";
+
+    createBoard();
+    updateUI();
+};
 
 createBoard();
-timer();
+updateUI();
 </script>
 
 </body>
