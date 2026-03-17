@@ -15,6 +15,7 @@ body {
     grid-template-columns: repeat(6, 70px);
     gap: 6px;
     justify-content: center;
+    margin-top: 10px;
 }
 
 .tile {
@@ -54,18 +55,17 @@ body {
     transform: translate(-50%, -50%) scale(1.2) !important;
 }
 
-/* リスタート */
-#restart {
-    margin-top: 15px;
+/* ボタン */
+button {
     padding: 10px 20px;
     font-size: 16px;
-    display: none;
+    margin: 10px;
 }
 </style>
 </head>
 <body>
 
-<h1>🍭 完成版マッチ3 🍬</h1>
+<h1>🍭 マッチ3 🍬</h1>
 
 <div>
 スコア: <span id="score">0</span> |
@@ -73,9 +73,11 @@ body {
 🔥 <span id="combo">0</span>
 </div>
 
+<button id="startBtn">はじめる</button>
+<button id="restartBtn" style="display:none;">もう一回</button>
+
 <div id="board"></div>
 <div id="comboText"></div>
-<button id="restart">もう一回</button>
 
 <script>
 const size = 6;
@@ -87,7 +89,7 @@ let selected = null;
 let score = 0;
 let combo = 0;
 let moves = 30;
-let gameActive = true;
+let gameActive = false;
 
 const board = document.getElementById("board");
 const comboText = document.getElementById("comboText");
@@ -134,9 +136,10 @@ function clickTile(tile){
         if(isAdjacent(selected,tile)){
             swap(selected,tile);
 
-            if(process()){
-                moves--;
-            }else{
+            // ✅ 入れ替えた時点で手数減る
+            moves--;
+
+            if(!process()){
                 setTimeout(()=>swap(selected,tile),200);
                 combo=0;
             }
@@ -150,9 +153,9 @@ function clickTile(tile){
 }
 
 function showComboEffect(){
-    if(combo <= 1) return;
+    if(combo<=1)return;
 
-    comboText.textContent = combo + " COMBO!";
+    comboText.textContent=combo+" COMBO!";
     comboText.classList.add("showCombo");
 
     setTimeout(()=>{
@@ -160,11 +163,11 @@ function showComboEffect(){
     },600);
 }
 
-// マッチ処理
 function findMatches(){
     let matches=[];
     let specials=[];
 
+    // 横
     for(let r=0;r<size;r++){
         let streak=[r*size];
         for(let c=1;c<size;c++){
@@ -183,6 +186,7 @@ function findMatches(){
         if(streak.length>=3) matches.push(...streak);
     }
 
+    // 縦
     for(let c=0;c<size;c++){
         let streak=[c];
         for(let r=1;r<size;r++){
@@ -291,25 +295,30 @@ function updateUI(){
 function checkEnd(){
     if(moves<=0){
         gameActive=false;
-        document.getElementById("restart").style.display="inline-block";
+        document.getElementById("restartBtn").style.display="inline-block";
     }
 }
 
-// リスタート
-document.getElementById("restart").onclick=()=>{
+// ▶️ スタート
+document.getElementById("startBtn").onclick=()=>{
     score=0;
     combo=0;
     moves=30;
     gameActive=true;
 
-    document.getElementById("restart").style.display="none";
+    document.getElementById("startBtn").style.display="none";
+    document.getElementById("restartBtn").style.display="none";
 
     createBoard();
     updateUI();
 };
 
-createBoard();
-updateUI();
+// 🔁 リスタート
+document.getElementById("restartBtn").onclick=()=>{
+    document.getElementById("startBtn").style.display="inline-block";
+    document.getElementById("restartBtn").style.display="none";
+    board.innerHTML="";
+};
 </script>
 
 </body>
