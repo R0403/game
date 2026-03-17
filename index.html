@@ -2,166 +2,228 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>かわいいマッチ3パズル</title>
+<title>キャンディ風マッチ3</title>
 <style>
-    body {
-        font-family: "Arial", sans-serif;
-        background: linear-gradient(#ffe6f0, #fff);
-        text-align: center;
-    }
+body {
+    font-family: Arial;
+    background: linear-gradient(#ffd6f0, #fff);
+    text-align: center;
+}
 
-    h1 {
-        color: #ff66a3;
-    }
+h1 { color: #ff4da6; }
 
-    #score {
-        font-size: 20px;
-        margin-bottom: 10px;
-        color: #ff3399;
-    }
+#info {
+    margin: 10px;
+    font-size: 18px;
+}
 
-    #board {
-        display: grid;
-        grid-template-columns: repeat(6, 60px);
-        grid-template-rows: repeat(6, 60px);
-        gap: 5px;
-        justify-content: center;
-    }
+#board {
+    display: grid;
+    grid-template-columns: repeat(6, 70px);
+    gap: 6px;
+    justify-content: center;
+}
 
-    .tile {
-        width: 60px;
-        height: 60px;
-        border-radius: 12px;
-        font-size: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: transform 0.2s;
-    }
+.tile {
+    width: 70px;
+    height: 70px;
+    border-radius: 15px;
+    font-size: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s, opacity 0.2s;
+}
 
-    .tile:hover {
-        transform: scale(1.1);
-    }
+.tile:hover { transform: scale(1.1); }
 
-    .selected {
-        outline: 3px solid #ff66cc;
-    }
+.selected {
+    outline: 3px solid #ff66cc;
+}
+
+.clear {
+    opacity: 0;
+    transform: scale(0.5);
+}
 </style>
 </head>
 <body>
 
-<h1>🍬 かわいいマッチ3 🍭</h1>
-<div id="score">スコア: 0</div>
+<h1>🍭 キャンディ風マッチ3 🍬</h1>
+
+<div id="info">
+スコア: <span id="score">0</span> |
+⏱ <span id="time">60</span> |
+🔥 <span id="combo">0</span>
+</div>
+
 <div id="board"></div>
 
 <script>
 const size = 6;
-const board = document.getElementById("board");
-const scoreDisplay = document.getElementById("score");
-
 const items = ["🍓","🍋","🍇","🍊","🍒","🍬"];
 
 let grid = [];
 let selected = null;
-let score = 0;
 
-// 初期化
+let score = 0;
+let combo = 0;
+let time = 60;
+let gameActive = true;
+
+const board = document.getElementById("board");
+
+function randomItem() {
+    return items[Math.floor(Math.random() * items.length)];
+}
+
 function createBoard() {
-    grid = [];
     board.innerHTML = "";
+    grid = [];
 
     for (let i = 0; i < size * size; i++) {
         const tile = document.createElement("div");
-        tile.classList.add("tile");
-
-        const item = items[Math.floor(Math.random() * items.length)];
-        tile.textContent = item;
-
+        tile.className = "tile";
+        tile.textContent = randomItem();
         tile.dataset.index = i;
 
-        tile.addEventListener("click", () => handleClick(tile));
+        tile.onclick = () => clickTile(tile);
 
         board.appendChild(tile);
         grid.push(tile);
     }
 }
 
-// タイルクリック
-function handleClick(tile) {
+function isAdjacent(a, b) {
+    const i = +a.dataset.index;
+    const j = +b.dataset.index;
+
+    return (
+        Math.abs(i - j) === 1 && Math.floor(i/size) === Math.floor(j/size) ||
+        Math.abs(i - j) === size
+    );
+}
+
+function clickTile(tile) {
+    if (!gameActive) return;
+
     if (!selected) {
         selected = tile;
         tile.classList.add("selected");
     } else {
-        swapTiles(selected, tile);
+        if (isAdjacent(selected, tile)) {
+            swap(selected, tile);
+
+            if (!findMatches().length) {
+                setTimeout(() => swap(selected, tile), 200);
+                combo = 0;
+            } else {
+                process();
+            }
+        }
+
         selected.classList.remove("selected");
         selected = null;
-
-        setTimeout(checkMatches, 100);
     }
 }
 
-// 入れ替え
-function swapTiles(a, b) {
-    let temp = a.textContent;
+function swap(a, b) {
+    let t = a.textContent;
     a.textContent = b.textContent;
-    b.textContent = temp;
+    b.textContent = t;
 }
 
-// マッチチェック
-function checkMatches() {
-    let matched = [];
+// マッチ検出
+function findMatches() {
+    let matches = [];
 
     // 横
-    for (let row = 0; row < size; row++) {
-        for (let col = 0; col < size - 2; col++) {
-            let i = row * size + col;
-            let t1 = grid[i].textContent;
-            let t2 = grid[i+1].textContent;
-            let t3 = grid[i+2].textContent;
+    for (let r = 0; r < size; r++) {
+        let streak = 1;
+        for (let c = 1; c < size; c++) {
+            let i = r*size + c;
+            let prev = r*size + c-1;
 
-            if (t1 === t2 && t2 === t3) {
-                matched.push(i, i+1, i+2);
+            if (grid[i].textContent === grid[prev].textContent) {
+                streak++;
+                if (streak >= 3) {
+                    for (let k = 0; k < streak; k++) {
+                        matches.push(i-k);
+                    }
+                }
+            } else {
+                streak = 1;
             }
         }
     }
 
     // 縦
-    for (let col = 0; col < size; col++) {
-        for (let row = 0; row < size - 2; row++) {
-            let i = row * size + col;
-            let t1 = grid[i].textContent;
-            let t2 = grid[i+size].textContent;
-            let t3 = grid[i+size*2].textContent;
+    for (let c = 0; c < size; c++) {
+        let streak = 1;
+        for (let r = 1; r < size; r++) {
+            let i = r*size + c;
+            let prev = (r-1)*size + c;
 
-            if (t1 === t2 && t2 === t3) {
-                matched.push(i, i+size, i+size*2);
+            if (grid[i].textContent === grid[prev].textContent) {
+                streak++;
+                if (streak >= 3) {
+                    for (let k = 0; k < streak; k++) {
+                        matches.push(i - k*size);
+                    }
+                }
+            } else {
+                streak = 1;
             }
         }
     }
 
-    if (matched.length > 0) {
-        matched.forEach(i => {
-            grid[i].textContent = "";
-        });
-
-        score += matched.length;
-        scoreDisplay.textContent = "スコア: " + score;
-
-        setTimeout(dropTiles, 200);
-    }
+    return [...new Set(matches)];
 }
 
-// 落下処理
-function dropTiles() {
-    for (let col = 0; col < size; col++) {
-        for (let row = size - 1; row >= 0; row--) {
-            let i = row * size + col;
+// メイン処理（連鎖対応）
+function process() {
+    let matches = findMatches();
 
-            if (grid[i].textContent === "") {
-                for (let k = row - 1; k >= 0; k--) {
-                    let above = k * size + col;
-                    if (grid[above].textContent !== "") {
+    if (matches.length === 0) {
+        combo = 0;
+        updateUI();
+        return;
+    }
+
+    combo++;
+
+    // 特殊ピース判定（簡易）
+    if (matches.length >= 5) {
+        let color = grid[matches[0]].textContent;
+        grid.forEach((t,i)=>{
+            if(t.textContent === color) matches.push(i);
+        });
+    }
+
+    score += matches.length * 10 * combo;
+
+    matches.forEach(i => {
+        grid[i].classList.add("clear");
+        setTimeout(()=> {
+            grid[i].textContent = "";
+            grid[i].classList.remove("clear");
+        },200);
+    });
+
+    updateUI();
+
+    setTimeout(drop, 250);
+}
+
+function drop() {
+    for (let c = 0; c < size; c++) {
+        for (let r = size-1; r >= 0; r--) {
+            let i = r*size + c;
+            if (!grid[i].textContent) {
+                for (let k = r-1; k >= 0; k--) {
+                    let above = k*size + c;
+                    if (grid[above].textContent) {
                         grid[i].textContent = grid[above].textContent;
                         grid[above].textContent = "";
                         break;
@@ -171,18 +233,37 @@ function dropTiles() {
         }
     }
 
-    // 上から補充
-    grid.forEach(tile => {
-        if (tile.textContent === "") {
-            tile.textContent = items[Math.floor(Math.random() * items.length)];
-        }
+    grid.forEach(t => {
+        if (!t.textContent) t.textContent = randomItem();
     });
 
-    setTimeout(checkMatches, 200);
+    setTimeout(process, 250);
 }
 
-// 初期化実行
+function updateUI() {
+    document.getElementById("score").textContent = score;
+    document.getElementById("combo").textContent = combo;
+}
+
+// タイマー
+function timer() {
+    let t = setInterval(()=>{
+        if (!gameActive) return;
+
+        time--;
+        document.getElementById("time").textContent = time;
+
+        if (time <= 0) {
+            gameActive = false;
+            clearInterval(t);
+            alert("終了！スコア: " + score);
+        }
+    },1000);
+}
+
+// 初期化
 createBoard();
+timer();
 </script>
 
 </body>
