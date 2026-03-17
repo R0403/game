@@ -2,19 +2,12 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>キャンディ風マッチ3</title>
+<title>本格マッチ3</title>
 <style>
 body {
     font-family: Arial;
     background: linear-gradient(#ffd6f0, #fff);
     text-align: center;
-}
-
-h1 { color: #ff4da6; }
-
-#info {
-    margin: 10px;
-    font-size: 18px;
 }
 
 #board {
@@ -28,33 +21,29 @@ h1 { color: #ff4da6; }
     width: 70px;
     height: 70px;
     border-radius: 15px;
-    font-size: 32px;
+    font-size: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: transform 0.2s, opacity 0.2s;
+    transition: 0.2s;
 }
 
-.tile:hover { transform: scale(1.1); }
-
-.selected {
-    outline: 3px solid #ff66cc;
-}
+.selected { outline: 3px solid pink; }
 
 .clear {
-    opacity: 0;
     transform: scale(0.5);
+    opacity: 0;
 }
 </style>
 </head>
 <body>
 
-<h1>🍭 キャンディ風マッチ3 🍬</h1>
+<h1>🍭 本格マッチ3 🍬</h1>
 
-<div id="info">
+<div>
 スコア: <span id="score">0</span> |
-⏱ <span id="time">60</span> |
+⏱ <span id="time">300</span> |
 🔥 <span id="combo">0</span>
 </div>
 
@@ -69,163 +58,183 @@ let selected = null;
 
 let score = 0;
 let combo = 0;
-let time = 60;
+let time = 300;
 let gameActive = true;
 
 const board = document.getElementById("board");
 
 function randomItem() {
-    return items[Math.floor(Math.random() * items.length)];
+    return items[Math.floor(Math.random()*items.length)];
 }
 
 function createBoard() {
     board.innerHTML = "";
     grid = [];
 
-    for (let i = 0; i < size * size; i++) {
+    for (let i=0;i<size*size;i++) {
         const tile = document.createElement("div");
         tile.className = "tile";
         tile.textContent = randomItem();
         tile.dataset.index = i;
+        tile.dataset.special = "";
 
-        tile.onclick = () => clickTile(tile);
+        tile.onclick = ()=>clickTile(tile);
 
         board.appendChild(tile);
         grid.push(tile);
     }
 }
 
-function isAdjacent(a, b) {
-    const i = +a.dataset.index;
-    const j = +b.dataset.index;
-
-    return (
-        Math.abs(i - j) === 1 && Math.floor(i/size) === Math.floor(j/size) ||
-        Math.abs(i - j) === size
-    );
+function isAdjacent(a,b){
+    let i=+a.dataset.index, j=+b.dataset.index;
+    return (Math.abs(i-j)===1 && Math.floor(i/size)===Math.floor(j/size)) || Math.abs(i-j)===size;
 }
 
-function clickTile(tile) {
-    if (!gameActive) return;
+function swap(a,b){
+    [a.textContent,b.textContent] = [b.textContent,a.textContent];
+    [a.dataset.special,b.dataset.special] = [b.dataset.special,a.dataset.special];
+}
 
-    if (!selected) {
-        selected = tile;
+function clickTile(tile){
+    if(!gameActive)return;
+
+    if(!selected){
+        selected=tile;
         tile.classList.add("selected");
-    } else {
-        if (isAdjacent(selected, tile)) {
-            swap(selected, tile);
+    }else{
+        if(isAdjacent(selected,tile)){
+            swap(selected,tile);
 
-            if (!findMatches().length) {
-                setTimeout(() => swap(selected, tile), 200);
-                combo = 0;
-            } else {
-                process();
+            if(!process()){
+                setTimeout(()=>swap(selected,tile),200);
+                combo=0;
             }
         }
 
         selected.classList.remove("selected");
-        selected = null;
+        selected=null;
     }
 }
 
-function swap(a, b) {
-    let t = a.textContent;
-    a.textContent = b.textContent;
-    b.textContent = t;
-}
-
-// マッチ検出
-function findMatches() {
+// マッチ検出＋特殊生成
+function findMatches(){
     let matches = [];
+    let specials = [];
 
     // 横
-    for (let r = 0; r < size; r++) {
-        let streak = 1;
-        for (let c = 1; c < size; c++) {
-            let i = r*size + c;
-            let prev = r*size + c-1;
+    for(let r=0;r<size;r++){
+        let streak=[r*size];
+        for(let c=1;c<size;c++){
+            let i=r*size+c;
+            if(grid[i].textContent===grid[i-1].textContent){
+                streak.push(i);
+            }else{
+                if(streak.length>=3){
+                    matches.push(...streak);
 
-            if (grid[i].textContent === grid[prev].textContent) {
-                streak++;
-                if (streak >= 3) {
-                    for (let k = 0; k < streak; k++) {
-                        matches.push(i-k);
+                    if(streak.length===4){
+                        specials.push({i:streak[0],type:"line"});
+                    }
+                    if(streak.length>=5){
+                        specials.push({i:streak[0],type:"bomb"});
                     }
                 }
-            } else {
-                streak = 1;
+                streak=[i];
             }
+        }
+        if(streak.length>=3){
+            matches.push(...streak);
         }
     }
 
     // 縦
-    for (let c = 0; c < size; c++) {
-        let streak = 1;
-        for (let r = 1; r < size; r++) {
-            let i = r*size + c;
-            let prev = (r-1)*size + c;
-
-            if (grid[i].textContent === grid[prev].textContent) {
-                streak++;
-                if (streak >= 3) {
-                    for (let k = 0; k < streak; k++) {
-                        matches.push(i - k*size);
-                    }
+    for(let c=0;c<size;c++){
+        let streak=[c];
+        for(let r=1;r<size;r++){
+            let i=r*size+c;
+            if(grid[i].textContent===grid[i-size].textContent){
+                streak.push(i);
+            }else{
+                if(streak.length>=3){
+                    matches.push(...streak);
                 }
-            } else {
-                streak = 1;
+                streak=[i];
             }
+        }
+        if(streak.length>=3){
+            matches.push(...streak);
         }
     }
 
-    return [...new Set(matches)];
+    return {matches:[...new Set(matches)], specials};
 }
 
-// メイン処理（連鎖対応）
-function process() {
-    let matches = findMatches();
+function activateSpecial(index){
+    let type = grid[index].dataset.special;
 
-    if (matches.length === 0) {
-        combo = 0;
+    if(type==="line"){
+        let row = Math.floor(index/size);
+        for(let c=0;c<size;c++){
+            grid[row*size+c].textContent="";
+        }
+    }
+
+    if(type==="bomb"){
+        let color = grid[index].textContent;
+        grid.forEach(t=>{
+            if(t.textContent===color) t.textContent="";
+        });
+    }
+}
+
+function process(){
+    let {matches, specials} = findMatches();
+
+    if(matches.length===0){
+        combo=0;
         updateUI();
-        return;
+        return false;
     }
 
     combo++;
-
-    // 特殊ピース判定（簡易）
-    if (matches.length >= 5) {
-        let color = grid[matches[0]].textContent;
-        grid.forEach((t,i)=>{
-            if(t.textContent === color) matches.push(i);
-        });
-    }
-
     score += matches.length * 10 * combo;
 
-    matches.forEach(i => {
+    // 特殊ピース生成
+    specials.forEach(s=>{
+        grid[s.i].dataset.special = s.type;
+        grid[s.i].textContent = s.type==="bomb" ? "🌈" : "⭐";
+    });
+
+    matches.forEach(i=>{
+        if(grid[i].dataset.special){
+            activateSpecial(i);
+        }
         grid[i].classList.add("clear");
-        setTimeout(()=> {
-            grid[i].textContent = "";
+        setTimeout(()=>{
+            grid[i].textContent="";
+            grid[i].dataset.special="";
             grid[i].classList.remove("clear");
         },200);
     });
 
     updateUI();
 
-    setTimeout(drop, 250);
+    setTimeout(drop,250);
+    return true;
 }
 
-function drop() {
-    for (let c = 0; c < size; c++) {
-        for (let r = size-1; r >= 0; r--) {
-            let i = r*size + c;
-            if (!grid[i].textContent) {
-                for (let k = r-1; k >= 0; k--) {
-                    let above = k*size + c;
-                    if (grid[above].textContent) {
-                        grid[i].textContent = grid[above].textContent;
-                        grid[above].textContent = "";
+function drop(){
+    for(let c=0;c<size;c++){
+        for(let r=size-1;r>=0;r--){
+            let i=r*size+c;
+            if(!grid[i].textContent){
+                for(let k=r-1;k>=0;k--){
+                    let above=k*size+c;
+                    if(grid[above].textContent){
+                        grid[i].textContent=grid[above].textContent;
+                        grid[i].dataset.special=grid[above].dataset.special;
+                        grid[above].textContent="";
+                        grid[above].dataset.special="";
                         break;
                     }
                 }
@@ -233,35 +242,35 @@ function drop() {
         }
     }
 
-    grid.forEach(t => {
-        if (!t.textContent) t.textContent = randomItem();
+    grid.forEach(t=>{
+        if(!t.textContent){
+            t.textContent=randomItem();
+        }
     });
 
-    setTimeout(process, 250);
+    setTimeout(process,250);
 }
 
-function updateUI() {
-    document.getElementById("score").textContent = score;
-    document.getElementById("combo").textContent = combo;
+function updateUI(){
+    document.getElementById("score").textContent=score;
+    document.getElementById("combo").textContent=combo;
 }
 
-// タイマー
-function timer() {
-    let t = setInterval(()=>{
-        if (!gameActive) return;
+function timer(){
+    let t=setInterval(()=>{
+        if(!gameActive)return;
 
         time--;
-        document.getElementById("time").textContent = time;
+        document.getElementById("time").textContent=time;
 
-        if (time <= 0) {
-            gameActive = false;
+        if(time<=0){
+            gameActive=false;
             clearInterval(t);
-            alert("終了！スコア: " + score);
+            alert("終了！スコア:"+score);
         }
     },1000);
 }
 
-// 初期化
 createBoard();
 timer();
 </script>
